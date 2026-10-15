@@ -1,0 +1,63 @@
+:root {
+  --bg: #07010f; --panel: #12052a; --violet: #7F00FF; --pink: #E100FF; --cyan: #00D4FF;
+  --green: #39FF14; --gold: #FFD23F; --red: #FF2E63; --text: #F3E9FF; --muted: #A88BD6;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { min-height: 100%; }
+body {
+  background: radial-gradient(ellipse at top, #1d0640 0%, var(--bg) 60%) fixed, var(--bg);
+  color: var(--text); font-family: "Press Start 2P", monospace; overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+body::before { /* grille synthwave */
+  content: ""; position: fixed; inset: 55% -50% -10% -50%; z-index: -1; pointer-events: none;
+  background:
+    linear-gradient(transparent 0 95%, rgba(225,0,255,.5) 95%) 0 0 / 100% 40px,
+    linear-gradient(90deg, transparent 0 97%, rgba(225,0,255,.5) 97%) 0 0 / 40px 100%;
+  transform: perspective(300px) rotateX(60deg); animation: gridmove 1.2s linear infinite;
+  mask-image: linear-gradient(transparent, #000 40%);
+}
+@keyframes gridmove { to { background-position: 0 40px, 0 0; } }
+
+.topbar {
+  position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 14px 16px; background: rgba(7,1,15,.8); backdrop-filter: blur(8px);
+  border-bottom: 2px solid rgba(225,0,255,.4); font-size: 11px;
+}
+.topbar a { color: var(--cyan); text-decoration: none; text-shadow: 0 0 8px var(--cyan); }
+.chips { color: var(--gold); text-shadow: 0 0 10px var(--gold); white-space: nowrap; }
+.chips.bump { animation: bump .4s; }
+@keyframes bump { 50% { transform: scale(1.25); } }
+
+main { max-width: 900px; margin: 0 auto; padding: 28px 16px 60px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+h1 {
+  font-size: clamp(22px, 6vw, 44px); text-align: center; line-height: 1.3;
+  background: linear-gradient(90deg, var(--cyan), var(--pink), var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 12px rgba(225,0,255,.6));
+}
+.sub { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.8; }
+
+.btn {
+  font-family: inherit; font-size: 12px; color: #fff; cursor: pointer; padding: 14px 20px; border-radius: 8px;
+  background: linear-gradient(180deg, rgba(225,0,255,.35), rgba(127,0,255,.25));
+  border: 2px solid var(--pink); box-shadow: 0 0 14px rgba(225,0,255,.6); text-shadow: 0 0 6px var(--pink);
+  transition: transform .1s, box-shadow .2s;
+}
+.btn:hover:not(:disabled) { box-shadow: 0 0 24px var(--pink); transform: translateY(-2px); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .35; cursor: not-allowed; }
+.btn.cyan { border-color: var(--cyan); box-shadow: 0 0 14px rgba(0,212,255,.6); background: linear-gradient(180deg, rgba(0,212,255,.3), rgba(0,80,160,.25)); text-shadow: 0 0 6px var(--cyan); }
+.btn.gold { border-color: var(--gold); box-shadow: 0 0 14px rgba(255,210,63,.6); background: linear-gradient(180deg, rgba(255,210,63,.3), rgba(160,90,0,.25)); text-shadow: 0 0 6px var(--gold); }
+.btn.big { font-size: 16px; padding: 18px 34px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; }
+
+.panel { background: rgba(18,5,42,.85); border: 2px solid rgba(127,0,255,.6); border-radius: 14px; padding: 18px; box-shadow: 0 0 30px rgba(127,0,255,.25); width: 100%; }
+.bet { display: flex; align-items: center; gap: 10px; font-size: 11px; }
+.bet output { min-width: 70px; text-align: center; color: var(--gold); font-size: 14px; text-shadow: 0 0 8px var(--gold); }
+.msg { min-height: 1.6em; font-size: clamp(11px, 3vw, 15px); text-align: center; line-height: 1.6; }
+.win { color: var(--green); text-shadow: 0 0 10px var(--green); }
+.lose { color: var(--red); text-shadow: 0 0 10px var(--red); }
+.disclaimer { font-size: 8px; color: var(--muted); text-align: center; line-height: 1.8; opacity: .8; }
+
+.confetti { position: fixed; top: -20px; width: 10px; height: 14px; z-index: 50; pointer-events: none; animation: fall linear forwards; }
+@keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }

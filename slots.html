@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Machine à sous néon</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🎰</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="casino.css" />
+<style>
+  .machine {
+    position: relative; display: flex; gap: 14px; padding: 26px 22px; border-radius: 22px;
+    background: linear-gradient(180deg, #2a0a55, #12052a); border: 3px solid var(--gold);
+    box-shadow: 0 0 30px rgba(255,210,63,.45), inset 0 0 30px rgba(0,0,0,.6);
+  }
+  .machine::before { /* ampoules */
+    content: ""; position: absolute; inset: 8px; border-radius: 16px; pointer-events: none;
+    background: radial-gradient(circle, var(--gold) 2px, transparent 3px) 0 0 / 22px 22px;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); padding: 4px;
+    animation: bulbs .6s steps(2) infinite; opacity: .8;
+  }
+  @keyframes bulbs { 50% { background-position: 11px 0; } }
+  .window {
+    --size: clamp(78px, 22vw, 110px);
+    width: var(--size); height: calc(var(--size) * 2.2); perspective: 900px; position: relative; overflow: hidden;
+    border-radius: 12px; background: linear-gradient(180deg, #05010d, #1a0838 50%, #05010d); border: 2px solid rgba(225,0,255,.6);
+    box-shadow: inset 0 0 22px #000;
+  }
+  .window::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(180deg, rgba(5,1,13,.95), transparent 30%, transparent 70%, rgba(5,1,13,.95)); }
+  .window.hit { border-color: var(--green); box-shadow: inset 0 0 22px #000, 0 0 24px var(--green); }
+  .reel {
+    position: absolute; left: 0; right: 0; top: calc(50% - var(--size) / 2); height: var(--size);
+    transform-style: preserve-3d; transition: transform 2.2s cubic-bezier(.15,.85,.25,1.02);
+  }
+  .face {
+    position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--size) * .55);
+    backface-visibility: hidden; font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  }
+  .payline { position: absolute; left: 6px; right: 6px; top: 50%; height: 2px; background: var(--red); box-shadow: 0 0 10px var(--red); opacity: .6; z-index: 2; pointer-events: none; }
+
+  .lever { position: absolute; right: -46px; top: 30px; width: 30px; height: 150px; cursor: pointer; }
+  .lever .stick { position: absolute; left: 12px; top: 18px; width: 6px; height: 120px; background: linear-gradient(90deg, #888, #eee, #888); border-radius: 3px; transform-origin: bottom center; transition: transform .25s; }
+  .lever .ball { position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ff9ab8, var(--red)); box-shadow: 0 0 14px var(--red); transition: transform .25s; }
+  .lever.pull .stick { transform: scaleY(.25); }
+  .lever.pull .ball { transform: translateY(90px); }
+
+  table.pay { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .pay td { padding: 7px 4px; border-bottom: 1px solid rgba(127,0,255,.3); }
+  .pay td:last-child { text-align: right; color: var(--gold); }
+  .pay .sym { font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; font-size: 18px; letter-spacing: 4px; }
+  .jackpot { font-size: clamp(18px, 6vw, 34px); color: var(--gold); text-shadow: 0 0 20px var(--gold); animation: bump .5s 4; }
+  @media (max-width: 520px) { .lever { display: none; } .machine { gap: 8px; padding: 20px 12px; } }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="./">← Arcade</a>
+  <span class="chips" id="chips">🪙 1 000</span>
+</div>
+<main>
+  <h1>🎰 MACHINE<br />À SOUS</h1>
+
+  <div class="machine">
+    <div class="window"><div class="payline"></div><div class="reel"></div></div>
+    <div class="window"><div class="payline"></div><div class="reel"></div></div>
+    <div class="window"><div class="payline"></div><div class="reel"></div></div>
+    <div class="lever" id="lever" title="Tirer le levier"><div class="stick"></div><div class="ball"></div></div>
+  </div>
+
+  <div class="msg" id="msg">Tire le levier ou appuie sur ESPACE !</div>
+
+  <div class="row">
+    <div class="bet" id="bet">
+      <button class="btn cyan" data-d="-">−</button>
+      <span>MISE</span><output>50</output>
+      <button class="btn cyan" data-d="+">+</button>
+      <button class="btn cyan" data-d="max">MAX</button>
+    </div>
+  </div>
+  <div class="row">
+    <button class="btn big gold" id="spin">🎰 LANCER</button>
+    <button class="btn" id="auto">AUTO ×10</button>
+  </div>
+  <button class="btn gold" id="refill" hidden>🪙 Recharger 1 000 jetons gratuits</button>
+
+  <div class="panel">
+    <table class="pay">
+      <tr><td class="sym">7️⃣7️⃣7️⃣</td><td>JACKPOT</td><td>×50</td></tr>
+      <tr><td class="sym">💎💎💎</td><td></td><td>×25</td></tr>
+      <tr><td class="sym">👾👾👾</td><td></td><td>×15</td></tr>
+      <tr><td class="sym">⭐⭐⭐</td><td></td><td>×12</td></tr>
+      <tr><td class="sym">🔔🔔🔔</td><td></td><td>×10</td></tr>
+      <tr><td class="sym">🍇🍇🍇</td><td></td><td>×8</td></tr>
+      <tr><td class="sym">🍋🍋🍋</td><td></td><td>×5</td></tr>
+      <tr><td class="sym">🍒🍒🍒</td><td></td><td>×4</td></tr>
+      <tr><td class="sym">🍒🍒 ·</td><td>2 cerises</td><td>×2</td></tr>
+      <tr><td class="sym">✖✖ ·</td><td>2 identiques</td><td>×1</td></tr>
+    </table>
+  </div>
+  <p class="disclaimer">Jetons fictifs, sans aucune valeur réelle. Aucun argent n'est en jeu.</p>
+</main>
+
+<script type="module">
+import { chips, confetti, beep, jingle, betControl } from "./chips.js";
+
+const SYMS = ["7️⃣", "💎", "👾", "⭐", "🔔", "🍇", "🍋", "🍒"];
+const WEIGHTS = [1, 2, 3, 4, 5, 6, 7, 8];          // le 7 est le plus rare
+const PAY = { "7️⃣": 50, "💎": 25, "👾": 15, "⭐": 12, "🔔": 10, "🍇": 8, "🍋": 5, "🍒": 4 };
+const N = SYMS.length, STEP = 360 / N;
+
+const windows = [...document.querySelectorAll(".window")];
+const reels = windows.map((w) => w.querySelector(".reel"));
+const angles = [0, 0, 0];
+const bet = betControl(document.getElementById("bet"), { min: 10, step: 10, initial: 50 });
+const msg = document.getElementById("msg");
+let spinning = false, autoLeft = 0;
+
+function build() {
+  const size = windows[0].getBoundingClientRect().width;
+  const r = size / 2 / Math.tan(Math.PI / N);
+  reels.forEach((reel, i) => {
+    reel.innerHTML = "";
+    SYMS.forEach((s, k) => {
+      const f = document.createElement("div");
+      f.className = "face"; f.textContent = s;
+      f.style.transform = `rotateX(${k * STEP}deg) translateZ(${r}px)`;
+      reel.appendChild(f);
+    });
+    // position de départ aléatoire
+    if (!angles[i]) { angles[i] = -Math.floor(Math.random() * N) * STEP; }
+    reel.style.transition = "none";
+    reel.style.transform = `rotateX(${angles[i]}deg)`;
+    void reel.offsetWidth; reel.style.transition = "";
+  });
+}
+
+function pick() {
+  const total = WEIGHTS.reduce((a, b) => a + b, 0);
+  let x = Math.random() * total;
+  for (let i = 0; i < N; i++) { x -= WEIGHTS[i]; if (x < 0) return i; }
+  return N - 1;
+}
+
+function payout(r) {
+  const s = r.map((k) => SYMS[k]);
+  if (s[0] === s[1] && s[1] === s[2]) return { mult: PAY[s[0]], hit: [0, 1, 2] };
+  const cherries = s.map((x, i) => (x === "🍒" ? i : -1)).filter((i) => i >= 0);
+  if (cherries.length === 2) return { mult: 2, hit: cherries };
+  for (const [a, b] of [[0, 1], [1, 2], [0, 2]]) if (s[a] === s[b]) return { mult: 1, hit: [a, b] };
+  return { mult: 0, hit: [] };
+}
+
+function spin() {
+  if (spinning) return;
+  const b = bet.get();
+  if (!chips.take(b)) { msg.innerHTML = '<span class="lose">Pas assez de jetons 😢</span>'; autoLeft = 0; return; }
+  spinning = true; document.getElementById("spin").disabled = true;
+  windows.forEach((w) => w.classList.remove("hit"));
+  msg.textContent = "Ça tourne…";
+  const lever = document.getElementById("lever");
+  lever.classList.add("pull"); setTimeout(() => lever.classList.remove("pull"), 350);
+
+  const res = [pick(), pick(), pick()];
+  reels.forEach((reel, i) => {
+    const base = angles[i] - 360 * (3 + i);
+    const m = (((base + res[i] * STEP) % 360) + 360) % 360;
+    angles[i] = base - m;
+    reel.style.transitionDuration = 1.6 + i * 0.5 + "s";
+    reel.style.transform = `rotateX(${angles[i]}deg)`;
+    setTimeout(() => beep(300 + i * 120, 0.08, "square"), (1.6 + i * 0.5) * 1000 - 100);
+  });
+  const ticker = setInterval(() => beep(800 + Math.random() * 400, 0.015, "square", 0.02), 70);
+
+  setTimeout(() => {
+    clearInterval(ticker);
+    const { mult, hit } = payout(res);
+    hit.forEach((i) => windows[i].classList.add("hit"));
+    if (mult > 0) {
+      const gain = Math.floor(b * mult);
+      chips.add(gain);
+      if (mult >= 25) { msg.innerHTML = `<div class="jackpot">💥 JACKPOT ! +${gain} 💥</div>`; confetti(160); jingle(); setTimeout(jingle, 450); }
+      else if (mult >= 4) { msg.innerHTML = `<span class="win">GAGNÉ ! ×${mult} → +${gain} 🪙</span>`; confetti(60); jingle(); }
+      else { msg.innerHTML = `<span class="win">+${gain} 🪙 (×${mult})</span>`; beep(880, 0.1); }
+    } else {
+      msg.innerHTML = '<span class="lose">Perdu… retente ta chance !</span>';
+    }
+    spinning = false; document.getElementById("spin").disabled = false; bet.refresh();
+    if (autoLeft > 0) { autoLeft--; document.getElementById("auto").textContent = autoLeft ? `STOP (${autoLeft})` : "AUTO ×10"; if (autoLeft) setTimeout(spin, 700); }
+  }, (1.6 + 2 * 0.5) * 1000 + 150);
+}
+
+document.getElementById("spin").onclick = spin;
+document.getElementById("lever").onclick = spin;
+document.getElementById("auto").onclick = (e) => {
+  if (autoLeft) { autoLeft = 0; e.target.textContent = "AUTO ×10"; return; }
+  autoLeft = 10; e.target.textContent = `STOP (${autoLeft})`; spin();
+};
+addEventListener("keydown", (e) => { if (e.code === "Space") { e.preventDefault(); spin(); } });
+addEventListener("resize", build);
+build();
+</script>
+</body>
+</html>

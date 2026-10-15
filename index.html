@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gabriel Arcade</title>
+<meta name="description" content="La salle d'arcade néon de Gabriel (Yxhiikoo) : un runner 3D, une machine à sous, un blackjack et une roulette." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%237F00FF'/><rect x='4' y='4' width='8' height='8' fill='%2300D4FF'/></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="casino.css" />
+<style>
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 18px; width: 100%; }
+  .card {
+    position: relative; display: flex; flex-direction: column; gap: 14px; padding: 22px; border-radius: 16px; text-decoration: none; color: var(--text);
+    background: linear-gradient(160deg, rgba(40,10,80,.9), rgba(12,3,28,.95)); border: 2px solid var(--c); overflow: hidden;
+    box-shadow: 0 0 22px color-mix(in srgb, var(--c) 45%, transparent); transition: transform .2s, box-shadow .2s;
+    transform-style: preserve-3d;
+  }
+  .card:hover { transform: translateY(-6px) rotateX(4deg); box-shadow: 0 0 40px var(--c); }
+  .card .ico { font-size: 54px; filter: drop-shadow(0 0 12px var(--c)); transition: transform .3s; }
+  .card:hover .ico { transform: scale(1.15) rotate(-8deg); }
+  .card h2 { font-size: 16px; color: var(--c); text-shadow: 0 0 10px var(--c); }
+  .card p { font-size: 9px; line-height: 1.9; color: var(--muted); }
+  .card .tag { position: absolute; top: 14px; right: 14px; font-size: 8px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--c); color: var(--c); }
+  .card .go { font-size: 11px; color: #fff; margin-top: auto; }
+  .marquee { width: 100%; overflow: hidden; white-space: nowrap; font-size: 10px; color: var(--gold); text-shadow: 0 0 8px var(--gold); }
+  .marquee span { display: inline-block; padding-left: 100%; animation: scroll 18s linear infinite; }
+  @keyframes scroll { to { transform: translateX(-100%); } }
+  .lights { display: flex; gap: 10px; justify-content: center; }
+  .lights i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); animation: blink 1s infinite; }
+  .lights i:nth-child(odd) { animation-delay: .5s; }
+  @keyframes blink { 50% { opacity: .2; } }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="https://github.com/Yxhiikoo" target="_blank" rel="noopener">← GitHub @Yxhiikoo</a>
+  <span class="chips" id="chips">🪙 1 000</span>
+</div>
+<main>
+  <div class="lights" style="--c:var(--pink)"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <h1>GABRIEL<br />ARCADE</h1>
+  <p class="sub">Une salle d'arcade néon codée à la main.<br />Choisis ton jeu 👇</p>
+  <div class="marquee"><span>★ JACKPOT 7·7·7 = x50 ★ BLACKJACK PAYE 3:2 ★ ROULETTE : NUMÉRO PLEIN x36 ★ NEON RUN : BATS TON RECORD ★ 1 000 JETONS OFFERTS ★</span></div>
+
+  <div class="grid">
+    <a class="card" href="run.html" style="--c:var(--cyan)">
+      <span class="tag">3D</span>
+      <span class="ico">🏃</span>
+      <h2>NEON RUN 3D</h2>
+      <p>Fonce sur une autoroute synthwave, esquive les murs et ramasse un max de commits. Ça accélère sans arrêt…</p>
+      <span class="go">▶ JOUER</span>
+    </a>
+    <a class="card" href="slots.html" style="--c:var(--gold)">
+      <span class="tag">CASINO</span>
+      <span class="ico">🎰</span>
+      <h2>MACHINE À SOUS</h2>
+      <p>Trois rouleaux en 3D, des symboles néon et un jackpot x50 sur 7·7·7. Tire le levier !</p>
+      <span class="go">▶ JOUER</span>
+    </a>
+    <a class="card" href="blackjack.html" style="--c:var(--green)">
+      <span class="tag">CASINO</span>
+      <span class="ico">🃏</span>
+      <h2>BLACKJACK</h2>
+      <p>Bats le croupier sans dépasser 21. Tirer, rester, doubler… et le blackjack paye 3:2.</p>
+      <span class="go">▶ JOUER</span>
+    </a>
+    <a class="card" href="roulette.html" style="--c:var(--pink)">
+      <span class="tag">3D</span>
+      <span class="ico">🎡</span>
+      <h2>ROULETTE 3D</h2>
+      <p>Une vraie roue européenne en 3D. Mise sur un numéro, une couleur ou pair/impair et regarde la bille tourner.</p>
+      <span class="go">▶ JOUER</span>
+    </a>
+  </div>
+
+  <button class="btn gold" id="refill" hidden>🪙 Recharger 1 000 jetons gratuits</button>
+  <p class="disclaimer">Jetons fictifs, sans aucune valeur réelle. Aucun argent n'est en jeu.<br />Fait avec 💜 par <a href="https://github.com/Yxhiikoo" style="color:var(--cyan)">@Yxhiikoo</a></p>
+</main>
+<script type="module" src="chips.js"></script>
+</body>
+</html>
