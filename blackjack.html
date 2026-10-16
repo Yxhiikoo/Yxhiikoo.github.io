@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Blackjack néon</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🃏</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="casino.css" />
+<style>
+  .table {
+    position: relative; width: 100%; padding: 22px 14px 26px; border-radius: 120px 120px 22px 22px / 60px 60px 22px 22px;
+    background: radial-gradient(ellipse at 50% 0%, #2c0a5c, #12052a 70%); border: 3px solid var(--green);
+    box-shadow: 0 0 28px rgba(57,255,20,.35), inset 0 0 40px rgba(0,0,0,.6);
+    display: flex; flex-direction: column; gap: 18px; overflow: hidden;
+  }
+  .arc { text-align: center; font-size: clamp(7px, 1.8vw, 10px); color: var(--green); text-shadow: 0 0 8px var(--green); letter-spacing: 1px; line-height: 1.8; opacity: .9; }
+  .shoe { position: absolute; top: 14px; right: 16px; font-size: 8px; color: var(--muted); text-align: right; line-height: 1.8; }
+  .shoe .box { width: 44px; height: 30px; margin-left: auto; border-radius: 6px; border: 2px solid var(--pink);
+    background: repeating-linear-gradient(45deg, #3a0a6e 0 6px, #7F00FF 6px 8px); box-shadow: 0 0 10px var(--pink); }
+  .side { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .label { font-size: 10px; color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
+  .label b { color: #fff; margin-left: 8px; }
+  .hand { display: flex; justify-content: center; min-height: calc(var(--cw) * 1.4); --cw: clamp(56px, 15vw, 84px); padding: 0 10px; }
+  .hand .card + .card { margin-left: calc(var(--cw) * -0.38); }
+
+  .card { width: var(--cw); height: calc(var(--cw) * 1.4); perspective: 700px; flex: none; animation: deal .45s cubic-bezier(.2,.8,.3,1) both; }
+  @keyframes deal { from { transform: translate(60vw, -40vh) rotate(25deg); opacity: 0; } }
+  .inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.3,1.4,.5,1); }
+  .card.down .inner { transform: rotateY(180deg); }
+  .face, .back { position: absolute; inset: 0; border-radius: 9px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .face {
+    background: linear-gradient(160deg, #1b0b33, #0b0418); border: 2px solid var(--c); box-shadow: 0 0 12px var(--c), inset 0 0 12px rgba(0,0,0,.6);
+    color: var(--c); font-family: "Segoe UI", system-ui, sans-serif; font-weight: 800;
+  }
+  .face .tl, .face .br { position: absolute; font-size: calc(var(--cw) * .2); line-height: 1; text-align: center; text-shadow: 0 0 6px var(--c); }
+  .face .tl { top: 6px; left: 7px; } .face .br { bottom: 6px; right: 7px; transform: rotate(180deg); }
+  .face .mid { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--cw) * .48); text-shadow: 0 0 14px var(--c); }
+  .card.red { --c: var(--red); } .card.black { --c: #EDE6FF; }
+  .back { transform: rotateY(180deg); border: 2px solid var(--pink); box-shadow: 0 0 12px var(--pink);
+    background: radial-gradient(circle at 50% 50%, rgba(225,0,255,.5), transparent 45%), repeating-linear-gradient(45deg, #2a0754 0 7px, #7F00FF 7px 9px); }
+  .back::after { content: "G"; position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--cw) * .32); color: #fff; text-shadow: 0 0 10px var(--pink); }
+
+  .stats { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; font-size: 9px; color: var(--muted); }
+  .stats span { color: var(--gold); text-shadow: 0 0 6px var(--gold); }
+  .keys { font-size: 8px; color: var(--muted); text-align: center; line-height: 2; }
+  .keys b { color: var(--cyan); }
+  .result { font-size: clamp(14px, 4.5vw, 22px); }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="./">← Arcade</a>
+  <span class="chips" id="chips">🪙 1 000</span>
+</div>
+<main>
+  <h1>🃏 BLACKJACK</h1>
+
+  <div class="table">
+    <div class="shoe"><div class="box"></div>SABOT : <span id="shoe">312</span></div>
+    <div class="side">
+      <div class="label">CROUPIER <b id="dTotal"></b></div>
+      <div class="hand" id="dealer"></div>
+    </div>
+    <div class="arc">BLACKJACK PAYE 3:2 · LE CROUPIER RESTE SUR 17</div>
+    <div class="side">
+      <div class="hand" id="player"></div>
+      <div class="label">TOI <b id="pTotal"></b></div>
+    </div>
+  </div>
+
+  <div class="msg" id="msg">Choisis ta mise et distribue !</div>
+
+  <div class="row" id="betRow">
+    <div class="bet" id="bet">
+      <button class="btn cyan" data-d="-">−</button>
+      <span>MISE</span><output>50</output>
+      <button class="btn cyan" data-d="+">+</button>
+      <button class="btn cyan" data-d="x2">×2</button>
+    </div>
+  </div>
+  <div class="row">
+    <button class="btn big gold" id="deal">🂠 DISTRIBUER</button>
+    <button class="btn cyan" id="hit" disabled>TIRER</button>
+    <button class="btn" id="stand" disabled>RESTER</button>
+    <button class="btn gold" id="double" disabled>DOUBLER</button>
+  </div>
+  <button class="btn gold" id="refill" hidden>🪙 Recharger 1 000 jetons gratuits</button>
+
+  <div class="stats">
+    <div>MAINS : <span id="sHands">0</span></div>
+    <div>GAGNÉES : <span id="sWins">0</span></div>
+    <div>SÉRIE : <span id="sStreak">0</span></div>
+  </div>
+  <p class="keys"><b>H</b> tirer · <b>S</b> rester · <b>D</b> doubler · <b>ESPACE</b> nouvelle main</p>
+  <p class="disclaimer">Jetons fictifs, sans aucune valeur réelle. Aucun argent n'est en jeu.</p>
+</main>
+
+<script type="module">
+import { chips, confetti, beep, jingle, betControl } from "./chips.js";
+
+const SUITS = [["♠", "black"], ["♥", "red"], ["♦", "red"], ["♣", "black"]];
+const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const DECKS = 6;
+const $ = (id) => document.getElementById(id);
+const bet = betControl($("bet"), { min: 10, step: 10, initial: 50 });
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+let shoe = [], dealer = [], player = [], stake = 0, phase = "bet";
+const stats = { hands: 0, wins: 0, streak: 0 };
+
+function newShoe() {
+  shoe = [];
+  for (let d = 0; d < DECKS; d++) for (const [s, color] of SUITS) for (const r of RANKS) shoe.push({ r, s, color });
+  for (let i = shoe.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [shoe[i], shoe[j]] = [shoe[j], shoe[i]]; }
+}
+const value = (c) => (c.r === "A" ? 1 : ["J", "Q", "K"].includes(c.r) ? 10 : +c.r);
+function totals(hand) {
+  let hard = 0, aces = 0;
+  for (const c of hand) { if (c.down) continue; hard += value(c); if (c.r === "A") aces++; }
+  const soft = aces && hard + 10 <= 21 ? hard + 10 : hard;
+  return { best: soft, soft: soft !== hard, hard };
+}
+const fmt = (hand) => { const t = totals(hand); return t.soft && t.best !== 21 ? `${t.hard}/${t.best}` : `${t.best}`; };
+const isBJ = (hand) => hand.length === 2 && totals(hand).best === 21;
+
+function cardEl(c) {
+  const el = document.createElement("div");
+  el.className = `card ${c.color}${c.down ? " down" : ""}`;
+  el.innerHTML = `<div class="inner"><div class="face"><div class="tl">${c.r}<br>${c.s}</div><div class="mid">${c.s}</div><div class="br">${c.r}<br>${c.s}</div></div><div class="back"></div></div>`;
+  c.el = el;
+  return el;
+}
+async function draw(hand, target, down = false) {
+  if (!shoe.length) newShoe();
+  const c = { ...shoe.pop(), down };
+  hand.push(c);
+  $(target).appendChild(cardEl(c));
+  $("shoe").textContent = shoe.length;
+  beep(down ? 300 : 500 + Math.random() * 200, 0.05, "triangle");
+  render();
+  await wait(380);
+  return c;
+}
+function render() {
+  $("pTotal").textContent = player.length ? fmt(player) : "";
+  $("dTotal").textContent = dealer.length ? fmt(dealer) + (dealer.some((c) => c.down) ? " + ?" : "") : "";
+}
+function buttons() {
+  const play = phase === "play";
+  $("hit").disabled = !play; $("stand").disabled = !play;
+  $("double").disabled = !(play && player.length === 2 && chips.get() >= stake);
+  $("deal").disabled = phase !== "bet";
+  $("betRow").style.opacity = phase === "bet" ? 1 : 0.4;
+}
+function say(html) { $("msg").innerHTML = html; }
+
+async function deal() {
+  if (phase !== "bet") return;
+  const b = bet.get();
+  if (!chips.take(b)) { say('<span class="lose">Pas assez de jetons 😢</span>'); return; }
+  stake = b; phase = "dealing"; buttons();
+  if (shoe.length < DECKS * 52 * 0.25) { newShoe(); say("🔀 Nouveau sabot mélangé !"); await wait(500); }
+  dealer = []; player = [];
+  $("dealer").innerHTML = ""; $("player").innerHTML = "";
+  say("Distribution…");
+  await draw(player, "player"); await draw(dealer, "dealer");
+  await draw(player, "player"); await draw(dealer, "dealer", true);
+
+  const pBJ = isBJ(player);
+  const dBJ = isBJ(dealer.map((c) => ({ ...c, down: false })));
+  if (pBJ || dBJ) { await reveal(); return finish(pBJ && dBJ ? "push" : pBJ ? "bj" : "lose"); }
+  phase = "play"; buttons();
+  say("Tirer ou rester ?");
+}
+
+async function reveal() {
+  const hole = dealer.find((c) => c.down);
+  if (hole) { hole.down = false; hole.el.classList.remove("down"); beep(650, 0.06, "triangle"); render(); await wait(500); }
+}
+
+async function hit() {
+  if (phase !== "play") return;
+  phase = "busy"; buttons();
+  await draw(player, "player");
+  const t = totals(player).best;
+  if (t > 21) { await reveal(); return finish("bust"); }
+  if (t === 21) return stand();
+  phase = "play"; buttons();
+}
+
+async function stand() {
+  if (phase !== "play" && phase !== "busy") return;
+  phase = "dealer"; buttons();
+  await reveal();
+  while (totals(dealer).best < 17) await draw(dealer, "dealer");
+  const d = totals(dealer).best, p = totals(player).best;
+  finish(d > 21 ? "dbust" : p > d ? "win" : p < d ? "lose" : "push");
+}
+
+async function doubleDown() {
+  if (phase !== "play" || player.length !== 2 || !chips.take(stake)) return;
+  stake *= 2; phase = "busy"; buttons();
+  say(`Mise doublée : ${stake} 🪙`);
+  await draw(player, "player");
+  if (totals(player).best > 21) { await reveal(); return finish("bust"); }
+  stand();
+}
+
+function finish(kind) {
+  const pay = { bj: Math.floor(stake * 2.5), win: stake * 2, dbust: stake * 2, push: stake, lose: 0, bust: 0 }[kind];
+  if (pay) chips.add(pay);
+  const net = pay - stake;
+  const texts = {
+    bj: `<span class="win result">🂡 BLACKJACK ! +${net} 🪙</span>`,
+    win: `<span class="win result">GAGNÉ ! +${net} 🪙</span>`,
+    dbust: `<span class="win result">Le croupier saute ! +${net} 🪙</span>`,
+    push: `<span class="result">Égalité, mise rendue 🤝</span>`,
+    lose: `<span class="lose result">Le croupier gagne… −${stake} 🪙</span>`,
+    bust: `<span class="lose result">Tu sautes ! (${totals(player).best}) −${stake} 🪙</span>`,
+  };
+  say(texts[kind] + '<br><small style="font-size:9px;color:var(--muted)">ESPACE pour rejouer</small>');
+  stats.hands++;
+  if (net > 0) { stats.wins++; stats.streak = Math.max(1, stats.streak + 1); confetti(kind === "bj" ? 140 : 60); jingle(); }
+  else if (net < 0) { stats.streak = Math.min(-1, stats.streak - 1); beep(180, 0.3, "sawtooth", 0.06); }
+  $("sHands").textContent = stats.hands; $("sWins").textContent = stats.wins;
+  $("sStreak").textContent = stats.streak > 0 ? `🔥 ${stats.streak}` : stats.streak < 0 ? `❄️ ${-stats.streak}` : "0";
+  phase = "bet"; bet.refresh(); buttons();
+}
+
+$("deal").onclick = deal;
+$("hit").onclick = hit;
+$("stand").onclick = stand;
+$("double").onclick = doubleDown;
+addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  if (k === "h") hit();
+  else if (k === "s") stand();
+  else if (k === "d") doubleDown();
+  else if (e.code === "Space" || k === "enter") { e.preventDefault(); deal(); }
+});
+
+newShoe();
+$("shoe").textContent = shoe.length;
+buttons();
+</script>
+</body>
+</html>

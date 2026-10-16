@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Roulette 3D néon</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🎡</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="casino.css" />
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<style>
+  #stage { width: 100%; aspect-ratio: 16 / 10; max-height: 520px; border-radius: 16px; overflow: hidden; border: 2px solid rgba(225,0,255,.6); box-shadow: 0 0 30px rgba(225,0,255,.3); background: #05010d; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+  .history { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; min-height: 30px; }
+  .pill { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 9px; border: 2px solid #fff3; }
+  .pill.red { background: #a0102e; box-shadow: 0 0 8px var(--red); } .pill.black { background: #1b0b33; box-shadow: 0 0 8px var(--violet); } .pill.green { background: #0d7a1a; box-shadow: 0 0 8px var(--green); }
+  .tablewrap { width: 100%; overflow-x: auto; padding-bottom: 6px; }
+  .felt { display: grid; grid-template-columns: 44px repeat(12, minmax(34px, 1fr)) 48px; grid-auto-rows: 44px; gap: 3px; min-width: 600px; font-size: 10px; }
+  .spot { position: relative; display: grid; place-items: center; border-radius: 6px; cursor: pointer; user-select: none; border: 1px solid rgba(255,255,255,.15); transition: transform .1s, box-shadow .2s; }
+  .spot:hover { transform: translateY(-2px); box-shadow: 0 0 12px var(--cyan); }
+  .spot.red { background: #8a0d28; } .spot.black { background: #1b0b33; } .spot.green { background: #0d6e18; }
+  .spot.out { background: rgba(127,0,255,.25); font-size: 8px; }
+  .spot.hit { animation: hit 0.5s 6 alternate; box-shadow: 0 0 20px var(--gold); border-color: var(--gold); }
+  @keyframes hit { to { transform: scale(1.12); } }
+  .chip { position: absolute; top: -8px; right: -6px; min-width: 26px; height: 26px; padding: 0 4px; border-radius: 13px; display: grid; place-items: center; font-size: 7px; color: #000;
+    background: radial-gradient(circle, #fff 0 40%, var(--gold) 41%); border: 2px dashed #a07000; box-shadow: 0 0 8px var(--gold); z-index: 2; pointer-events: none; }
+  .total { font-size: 10px; color: var(--muted); } .total span { color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="./">← Arcade</a>
+  <span class="chips" id="chips">🪙 1 000</span>
+</div>
+<main>
+  <h1>🎡 ROULETTE 3D</h1>
+  <div id="stage"></div>
+  <div class="msg" id="msg">Place tes jetons sur le tapis puis lance la bille !</div>
+  <div class="history" id="history"></div>
+
+  <div class="row">
+    <div class="bet" id="bet">
+      <button class="btn cyan" data-d="-">−</button>
+      <span>JETON</span><output>10</output>
+      <button class="btn cyan" data-d="+">+</button>
+      <button class="btn cyan" data-d="x2">×2</button>
+    </div>
+    <div class="total">MISE TOTALE : <span id="total">0</span></div>
+  </div>
+
+  <div class="panel tablewrap"><div class="felt" id="felt"></div></div>
+
+  <div class="row">
+    <button class="btn" id="clear">EFFACER LES MISES</button>
+    <button class="btn cyan" id="repeat">REJOUER LA MISE</button>
+    <button class="btn big gold" id="spin">🎡 LANCER</button>
+  </div>
+  <button class="btn gold" id="refill" hidden>🪙 Recharger 1 000 jetons gratuits</button>
+  <p class="disclaimer">Plein ×36 · Douzaine / colonne ×3 · Rouge, noir, pair, impair, manque, passe ×2 (mise comprise).<br />Jetons fictifs, sans aucune valeur réelle. Aucun argent n'est en jeu.</p>
+</main>
+
+<script type="module">
+import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { chips, confetti, beep, jingle, betControl } from "./chips.js";
+
+const ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+const REDS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+const colorOf = (n) => (n === 0 ? "green" : REDS.has(n) ? "red" : "black");
+const N = 37, SEG = (Math.PI * 2) / N;
+const $ = (id) => document.getElementById(id);
+
+// ---------- Scène 3D ----------
+const stage = $("stage");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.95;
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05010d);
+const camera = new THREE.PerspectiveCamera(42, 1.6, 0.1, 200);
+camera.position.set(0, 13, 11);
+camera.lookAt(0, 0, 0.6);
+scene.add(new THREE.AmbientLight(0x8060c0, 1.1));
+const key = new THREE.PointLight(0xffffff, 120, 60); key.position.set(4, 12, 6); scene.add(key);
+const rim = new THREE.PointLight(0xe100ff, 60, 40); rim.position.set(-8, 5, -6); scene.add(rim);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.7, 0.35, 0.55);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+// Étoiles
+{
+  const n = 500, p = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { const r = 30 + Math.random() * 40, a = Math.random() * Math.PI * 2; p[i * 3] = Math.cos(a) * r; p[i * 3 + 1] = -10 + Math.random() * 40; p[i * 3 + 2] = Math.sin(a) * r; }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(p, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 0.15 })));
+}
+
+// Cuvette fixe
+const R_OUT = 6.2, R_TRACK = 5.55, R_NUM_OUT = 5.0, R_NUM_IN = 4.2, R_POCKET = 3.75, R_INNER = 3.0;
+const bowl = new THREE.Mesh(new THREE.CylinderGeometry(R_OUT + 0.6, R_OUT + 0.3, 1.2, 96, 1, true),
+  new THREE.MeshStandardMaterial({ color: 0x1a0638, metalness: 0.6, roughness: 0.35, side: THREE.DoubleSide }));
+bowl.position.y = -0.1; scene.add(bowl);
+const track = new THREE.Mesh(new THREE.RingGeometry(R_NUM_OUT + 0.05, R_OUT + 0.6, 128),
+  new THREE.MeshStandardMaterial({ color: 0x2a0b55, metalness: 0.4, roughness: 0.4 }));
+track.rotation.x = -Math.PI / 2; track.position.y = 0.32; scene.add(track);
+const neonRim = new THREE.Mesh(new THREE.TorusGeometry(R_OUT + 0.6, 0.08, 12, 160), new THREE.MeshBasicMaterial({ color: 0xe100ff }));
+neonRim.rotation.x = Math.PI / 2; neonRim.position.y = 0.5; scene.add(neonRim);
+const neonRim2 = new THREE.Mesh(new THREE.TorusGeometry(R_NUM_OUT + 0.05, 0.05, 8, 160), new THREE.MeshBasicMaterial({ color: 0x00d4ff }));
+neonRim2.rotation.x = Math.PI / 2; neonRim2.position.y = 0.32; scene.add(neonRim2);
+const base = new THREE.Mesh(new THREE.CylinderGeometry(R_OUT + 0.3, R_OUT + 0.3, 0.3, 96), new THREE.MeshStandardMaterial({ color: 0x0b0318 }));
+base.position.y = -0.7; scene.add(base);
+
+// Roue tournante
+const wheel = new THREE.Group(); scene.add(wheel);
+function wheelTexture() {
+  const S = 2048, c = document.createElement("canvas"); c.width = c.height = S;
+  const g = c.getContext("2d"), cx = S / 2, k = S / 2 / R_NUM_OUT;
+  for (let i = 0; i < N; i++) {
+    const n = ORDER[i], a0 = i * SEG - SEG / 2, a1 = a0 + SEG;
+    g.beginPath(); g.moveTo(cx, cx); g.arc(cx, cx, S / 2, -a1, -a0); g.closePath();
+    g.fillStyle = n === 0 ? "#0fa024" : REDS.has(n) ? "#d0103a" : "#1a0833"; g.fill();
+    g.strokeStyle = "#ffd23f"; g.lineWidth = 6; g.stroke();
+    // numéro
+    const am = i * SEG, rn = ((R_NUM_OUT + R_NUM_IN) / 2) * k;
+    g.save(); g.translate(cx + Math.cos(am) * rn, cx - Math.sin(am) * rn); g.rotate(-am + Math.PI / 2);
+    g.fillStyle = "#fff"; g.font = "bold 92px Segoe UI, Arial, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.shadowColor = "#fff"; g.shadowBlur = 12; g.fillText(String(n), 0, 0); g.restore();
+  }
+  // séparation numéros / cases
+  g.beginPath(); g.arc(cx, cx, R_NUM_IN * k, 0, Math.PI * 2); g.strokeStyle = "#00d4ff"; g.lineWidth = 10; g.stroke();
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 8; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const tex = wheelTexture();
+const deck = new THREE.Mesh(new THREE.RingGeometry(R_INNER, R_NUM_OUT, 148, 1), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.2, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.25 }));
+// UV planaires pour que la texture carrée colle au disque
+{
+  const pos = deck.geometry.attributes.position, uv = deck.geometry.attributes.uv;
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / (2 * R_NUM_OUT) + 0.5, pos.getY(i) / (2 * R_NUM_OUT) + 0.5);
+}
+deck.rotation.x = -Math.PI / 2; deck.position.y = 0.2; wheel.add(deck);
+
+// Frettes entre les cases
+const fretMat = new THREE.MeshStandardMaterial({ color: 0xffd23f, metalness: 0.9, roughness: 0.2, emissive: 0x553300 });
+for (let i = 0; i < N; i++) {
+  const a = i * SEG - SEG / 2, r = (R_INNER + R_NUM_IN) / 2;
+  const f = new THREE.Mesh(new THREE.BoxGeometry(R_NUM_IN - R_INNER, 0.28, 0.06), fretMat);
+  f.position.set(Math.cos(a) * r, 0.34, -Math.sin(a) * r); f.rotation.y = a;
+  wheel.add(f);
+}
+// Tourelle centrale
+const cone = new THREE.Mesh(new THREE.ConeGeometry(R_INNER, 1.1, 64, 1, true), new THREE.MeshStandardMaterial({ color: 0x2a0b55, metalness: 0.7, roughness: 0.25, side: THREE.DoubleSide }));
+cone.position.y = 0.75; wheel.add(cone);
+const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.45, 1.6, 32), new THREE.MeshStandardMaterial({ color: 0xffd23f, metalness: 1, roughness: 0.15 }));
+turret.position.y = 1.4; wheel.add(turret);
+for (let i = 0; i < 4; i++) {
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.4, 12), turret.material);
+  arm.rotation.z = Math.PI / 2; arm.rotation.y = (i * Math.PI) / 2; arm.position.y = 2.0;
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 16), new THREE.MeshBasicMaterial({ color: 0x00d4ff }));
+  knob.position.set(Math.cos((i * Math.PI) / 2) * 1.2, 2.0, -Math.sin((i * Math.PI) / 2) * 1.2);
+  wheel.add(arm, knob);
+}
+
+// Bille
+const ball = new THREE.Mesh(new THREE.SphereGeometry(0.2, 24, 24), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.6, metalness: 0.3, roughness: 0.2 }));
+scene.add(ball);
+
+// ---------- Animation ----------
+let phi = 0;                // angle de la roue
+const IDLE = 0.25;          // rad/s au repos
+let spin = null;            // animation en cours
+let ballBeta = Math.PI / 2, ballR = R_TRACK, ballY = 0.55, resting = null; // resting = index de case
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+function startSpin(winIdx, onDone) {
+  const T = 6.5, extra = Math.PI * 2 * (3 + Math.random());
+  const phiStart = phi, phiEnd = phiStart + IDLE * T + extra;
+  const target = winIdx * SEG + phiEnd;
+  const b0 = ballBeta;
+  let B = (((b0 - target) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) + Math.PI * 2 * 8;
+  resting = null;
+  spin = { t0: performance.now(), t: 0, T, phiStart, extra, b0, B, winIdx, onDone, lastTick: 0 };
+}
+
+const clock = new THREE.Clock();
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (spin) {
+    spin.t = (performance.now() - spin.t0) / 1000;
+    const u = Math.min(1, spin.t / spin.T), e = easeOut(u);
+    phi = spin.phiStart + IDLE * spin.t + spin.extra * e;
+    ballBeta = spin.b0 - spin.B * easeOut(Math.min(1, u * 1.0));
+    // la bille quitte la piste et tombe vers les cases sur la fin
+    const drop = Math.min(1, Math.max(0, (u - 0.62) / 0.3));
+    ballR = R_TRACK + (R_POCKET - R_TRACK) * drop;
+    ballY = 0.55 - 0.15 * drop + (drop > 0 && drop < 1 ? Math.abs(Math.sin(drop * Math.PI * 5)) * 0.35 * (1 - drop) : 0);
+    // tic-tac quand la bille ralentit
+    const speed = spin.B * 3 * Math.pow(1 - u, 2) / spin.T;
+    spin.lastTick += dt;
+    if (drop > 0 && spin.lastTick > Math.max(0.06, 0.5 / (speed + 0.1))) { spin.lastTick = 0; beep(1400 + Math.random() * 400, 0.015, "square", 0.025); }
+    if (u >= 1) { resting = spin.winIdx; const done = spin.onDone; spin = null; done(); }
+  } else {
+    phi += IDLE * dt;
+    if (resting !== null) { ballBeta = resting * SEG + phi; ballR = R_POCKET; ballY = 0.4; }
+    else { ballBeta += 0; }
+  }
+  wheel.rotation.y = phi;
+  ball.position.set(Math.cos(ballBeta) * ballR, ballY, -Math.sin(ballBeta) * ballR);
+  neonRim.material.color.setHSL((0.83 + Math.sin(clock.elapsedTime * 0.8) * 0.06) % 1, 1, 0.55);
+  composer.render();
+  requestAnimationFrame(frame);
+}
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false); composer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.position.set(0, w < 500 ? 16 : 13, w < 500 ? 13 : 11); camera.lookAt(0, 0, 0.6);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+frame();
+
+// ---------- Tapis de mises ----------
+const felt = $("felt");
+const bet = betControl($("bet"), { min: 10, step: 10, initial: 10 });
+let bets = {}, lastBets = {}, spinning = false;
+const spots = {};
+function addSpot(key, label, cls, style) {
+  const d = document.createElement("div");
+  d.className = "spot " + cls; d.textContent = label; d.dataset.key = key;
+  Object.assign(d.style, style);
+  d.onclick = () => place(key);
+  felt.appendChild(d); spots[key] = d;
+}
+addSpot("n0", "0", "green", { gridColumn: "1", gridRow: "1 / span 3" });
+for (let col = 0; col < 12; col++) for (let row = 0; row < 3; row++) {
+  const n = col * 3 + (3 - row);
+  addSpot("n" + n, String(n), colorOf(n), { gridColumn: String(col + 2), gridRow: String(row + 1) });
+}
+["c3", "c2", "c1"].forEach((k, row) => addSpot(k, "2:1", "out", { gridColumn: "14", gridRow: String(row + 1) }));
+[["d1", "1-12"], ["d2", "13-24"], ["d3", "25-36"]].forEach(([k, l], i) => addSpot(k, l, "out", { gridColumn: `${2 + i * 4} / span 4`, gridRow: "4" }));
+[["low", "1-18", "out"], ["even", "PAIR", "out"], ["red", "ROUGE", "red"], ["black", "NOIR", "black"], ["odd", "IMPAIR", "out"], ["high", "19-36", "out"]]
+  .forEach(([k, l, c], i) => addSpot(k, l, c, { gridColumn: `${2 + i * 2} / span 2`, gridRow: "5" }));
+
+function covers(k, n) {
+  if (k[0] === "n") return +k.slice(1) === n;
+  if (n === 0) return false;
+  switch (k) {
+    case "red": return REDS.has(n); case "black": return !REDS.has(n);
+    case "even": return n % 2 === 0; case "odd": return n % 2 === 1;
+    case "low": return n <= 18; case "high": return n >= 19;
+    case "d1": return n <= 12; case "d2": return n > 12 && n <= 24; case "d3": return n > 24;
+    case "c1": return n % 3 === 1; case "c2": return n % 3 === 2; case "c3": return n % 3 === 0;
+  }
+  return false;
+}
+const multOf = (k) => (k[0] === "n" ? 36 : k[0] === "d" || k[0] === "c" ? 3 : 2);
+
+function drawChips() {
+  for (const [k, el] of Object.entries(spots)) {
+    el.querySelector(".chip")?.remove();
+    if (bets[k]) { const c = document.createElement("span"); c.className = "chip"; c.textContent = bets[k]; el.appendChild(c); }
+  }
+  $("total").textContent = Object.values(bets).reduce((a, b) => a + b, 0);
+}
+function place(k) {
+  if (spinning) return;
+  const v = bet.get();
+  if (!chips.take(v)) { $("msg").innerHTML = '<span class="lose">Pas assez de jetons 😢</span>'; return; }
+  bets[k] = (bets[k] || 0) + v; beep(900, 0.04, "triangle"); drawChips(); bet.refresh();
+}
+$("clear").onclick = () => {
+  if (spinning) return;
+  const sum = Object.values(bets).reduce((a, b) => a + b, 0);
+  if (sum) chips.add(sum);
+  bets = {}; drawChips(); bet.refresh();
+};
+$("repeat").onclick = () => {
+  if (spinning) return;
+  const sum = Object.values(lastBets).reduce((a, b) => a + b, 0);
+  if (!sum) return;
+  if (!chips.take(sum)) { $("msg").innerHTML = '<span class="lose">Pas assez de jetons pour rejouer la mise</span>'; return; }
+  for (const [k, v] of Object.entries(lastBets)) bets[k] = (bets[k] || 0) + v;
+  drawChips(); bet.refresh();
+};
+
+const history = [];
+$("spin").onclick = () => {
+  if (spinning) return;
+  const total = Object.values(bets).reduce((a, b) => a + b, 0);
+  if (!total) { $("msg").textContent = "Place au moins un jeton sur le tapis 👇"; return; }
+  spinning = true; $("spin").disabled = true;
+  Object.values(spots).forEach((s) => s.classList.remove("hit"));
+  $("msg").textContent = "Les jeux sont faits… rien ne va plus ! 🎲";
+  beep(500, 0.1); setTimeout(() => beep(700, 0.1), 120);
+  const winIdx = Math.floor(Math.random() * N), n = ORDER[winIdx];
+  startSpin(winIdx, () => {
+    let gain = 0;
+    for (const [k, v] of Object.entries(bets)) if (covers(k, n)) gain += v * multOf(k);
+    if (gain) chips.add(gain);
+    const net = gain - total, col = colorOf(n);
+    const label = { red: "ROUGE", black: "NOIR", green: "ZÉRO" }[col];
+    spots["n" + n].classList.add("hit");
+    if (net > 0) { $("msg").innerHTML = `<span class="win">${n} ${label} · +${net} 🪙</span>`; confetti(net >= total * 5 ? 150 : 60); jingle(); }
+    else if (gain > 0) { $("msg").innerHTML = `${n} ${label} · récupéré ${gain} 🪙`; }
+    else { $("msg").innerHTML = `<span class="lose">${n} ${label} · −${total} 🪙</span>`; beep(180, 0.3, "sawtooth", 0.06); }
+    history.unshift(n); history.length = Math.min(history.length, 12);
+    $("history").innerHTML = history.map((x) => `<span class="pill ${colorOf(x)}">${x}</span>`).join("");
+    lastBets = bets; bets = {}; drawChips(); bet.refresh();
+    spinning = false; $("spin").disabled = false;
+  });
+};
+addEventListener("keydown", (e) => { if (e.code === "Space") { e.preventDefault(); $("spin").click(); } });
+</script>
+</body>
+</html>
